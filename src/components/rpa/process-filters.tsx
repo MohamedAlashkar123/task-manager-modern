@@ -4,7 +4,7 @@ import { Search, Grid, List } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { RPAFilterType } from '@/types'
-import { useRPAProcessesStore } from '@/store/rpa-processes'
+import { useRPAProcessesStore } from '@/store/rpa-processes-supabase'
 import { cn } from '@/lib/utils'
 
 const filterOptions: { key: RPAFilterType; label: string }[] = [

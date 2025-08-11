@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,7 +15,9 @@ import { ProcessCard } from '@/components/rpa/process-card'
 import { ProcessFormDialog } from '@/components/rpa/process-form-dialog'
 import { ProcessFilters } from '@/components/rpa/process-filters'
 import { ProcessStats } from '@/components/rpa/process-stats'
-import { useRPAProcessesStore } from '@/store/rpa-processes'
+import { SortableLayout } from '@/components/layout/SortableLayout'
+import { useRPAProcessesStore } from '@/store/rpa-processes-supabase'
+import { useLayoutPreferences } from '@/hooks/useLayoutPreferences'
 import { RPAProcess } from '@/types'
 
 export default function RPAProcessesPage() {
@@ -23,13 +25,22 @@ export default function RPAProcessesPage() {
     processes, 
     currentFilter, 
     currentSearch, 
-    viewMode, 
-    deleteProcess 
+    isLoading,
+    error,
+    fetchProcesses,
+    deleteProcess,
+    reorderProcesses
   } = useRPAProcessesStore()
+  const { preferences, setViewMode, isLoaded } = useLayoutPreferences('rpa-layout')
   
   const [selectedProcess, setSelectedProcess] = useState<RPAProcess | undefined>()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [processToDelete, setProcessToDelete] = useState<string | null>(null)
+
+  // Fetch processes on component mount
+  useEffect(() => {
+    fetchProcesses()
+  }, [fetchProcesses])
 
   const filterProcesses = (processes: RPAProcess[]): RPAProcess[] => {
     let filtered = [...processes]
@@ -46,7 +57,9 @@ export default function RPAProcessesPage() {
         process.name.toLowerCase().includes(searchTerm) ||
         process.description.toLowerCase().includes(searchTerm) ||
         (process.owner && process.owner.toLowerCase().includes(searchTerm)) ||
-        (process.department && process.department.toLowerCase().includes(searchTerm))
+        (process.department && process.department.toLowerCase().includes(searchTerm)) ||
+        (process.entityName && process.entityName.toLowerCase().includes(searchTerm)) ||
+        (process.dueDate && process.dueDate.includes(searchTerm))
       )
     }
 
@@ -68,7 +81,7 @@ export default function RPAProcessesPage() {
   }
 
   const filteredProcesses = filterProcesses(processes)
-  const shouldGroupByStatus = currentFilter === 'all' && !currentSearch && viewMode === 'grid'
+  const shouldGroupByStatus = currentFilter === 'all' && !currentSearch && preferences.viewMode === 'grid'
 
   const handleEditProcess = (process: RPAProcess) => {
     setSelectedProcess(process)
@@ -86,21 +99,70 @@ export default function RPAProcessesPage() {
     }
   }
 
-  const renderProcessGrid = (processes: RPAProcess[]) => {
-    const gridClass = viewMode === 'grid' 
-      ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-      : 'grid grid-cols-1 gap-4'
-    
+  const renderProcessLayout = (processes: RPAProcess[]) => {
     return (
-      <div className={gridClass}>
-        {processes.map((process) => (
+      <SortableLayout
+        items={processes}
+        onReorder={reorderProcesses}
+        viewMode={preferences.viewMode}
+        onViewModeChange={setViewMode}
+        renderItem={(process, isDragging) => (
           <ProcessCard
-            key={process.id}
             process={process}
             onEdit={handleEditProcess}
             onDelete={handleDeleteProcess}
+            viewMode={preferences.viewMode}
+            isDragging={isDragging}
           />
-        ))}
+        )}
+        renderDragOverlay={(process) => (
+          <ProcessCard
+            process={process}
+            onEdit={handleEditProcess}
+            onDelete={handleDeleteProcess}
+            viewMode={preferences.viewMode}
+            isDragging={true}
+          />
+        )}
+        disabled={!isLoaded || currentFilter !== 'all' || !!currentSearch}
+        showHandles={preferences.viewMode === 'list'}
+        aria-label="RPA processes list"
+        gridClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        listClassName="space-y-4"
+      />
+    )
+  }
+
+  // Show loading state
+  if (isLoading && processes.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Header 
+          title="RPA Processes" 
+          subtitle="Manage and track your automation processes" 
+        />
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading RPA processes...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Header 
+          title="RPA Processes" 
+          subtitle="Manage and track your automation processes" 
+        />
+        <div className="text-center py-12">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h3 className="text-lg font-semibold mb-2">Error Loading Processes</h3>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <Button onClick={fetchProcesses}>Try Again</Button>
+        </div>
       </div>
     )
   }
@@ -141,12 +203,12 @@ export default function RPAProcessesPage() {
                   {groupProcesses.length}
                 </span>
               </div>
-              {renderProcessGrid(groupProcesses)}
+              {renderProcessLayout(groupProcesses)}
             </div>
           ))}
         </div>
       ) : (
-        renderProcessGrid(filteredProcesses)
+        renderProcessLayout(filteredProcesses)
       )}
 
       {/* Floating Add Button */}

@@ -1,20 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Edit, Trash2, User, Building, PlayCircle, PauseCircle, CheckCircle, Clock } from 'lucide-react'
+import { Calendar, Edit, Trash2, User, Building, PlayCircle, PauseCircle, CheckCircle, Clock, Factory, CalendarDays } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { RPAProcess } from '@/types'
+import { RPAProcess, ViewMode } from '@/types'
 import { cn } from '@/lib/utils'
 
 interface ProcessCardProps {
   process: RPAProcess
   onEdit: (process: RPAProcess) => void
   onDelete: (processId: string) => void
+  viewMode?: ViewMode
+  isDragging?: boolean
 }
 
-export function ProcessCard({ process, onEdit, onDelete }: ProcessCardProps) {
+export function ProcessCard({ process, onEdit, onDelete, viewMode = 'grid', isDragging = false }: ProcessCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   
   const getStatusIcon = (status: RPAProcess['status']) => {
@@ -64,16 +66,43 @@ export function ProcessCard({ process, onEdit, onDelete }: ProcessCardProps) {
     })
   }
 
+  const formatDueDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const getDueDateStatus = (dueDate: string) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const due = new Date(dueDate)
+    due.setHours(0, 0, 0, 0)
+    const diffTime = due.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays < 0) return { status: 'overdue', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' }
+    if (diffDays === 0) return { status: 'due-today', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800' }
+    if (diffDays <= 7) return { status: 'due-soon', color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800' }
+    return { status: 'normal', color: 'text-muted-foreground', bgColor: '' }
+  }
+
   return (
     <Card 
       className={cn(
-        'transition-all duration-200 hover:shadow-md cursor-pointer overflow-hidden',
-        'animate-in slide-in-from-bottom-1 duration-300'
+        'transition-all duration-200 hover:shadow-md cursor-pointer overflow-hidden h-full',
+        'animate-in slide-in-from-bottom-1 duration-300',
+        isDragging && 'opacity-50 shadow-lg rotate-2',
+        viewMode === 'list' && 'flex flex-row items-stretch'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <CardHeader className="pb-3 relative">
+      <CardHeader className={cn(
+        'pb-3 relative',
+        viewMode === 'list' && 'flex-none w-96'
+      )}>
         <div className={cn(
           'absolute top-4 right-4 flex gap-1 transition-opacity duration-200',
           isHovered ? 'opacity-100' : 'opacity-0'
@@ -103,16 +132,56 @@ export function ProcessCard({ process, onEdit, onDelete }: ProcessCardProps) {
         </div>
         
         <h3 
-          className="font-semibold text-lg cursor-pointer hover:text-primary transition-colors pr-16 mb-2"
-          onClick={() => onEdit(process)}
+          className={cn(
+            'font-semibold cursor-pointer hover:text-primary transition-colors pr-16 mb-2',
+            viewMode === 'grid' ? 'text-lg' : 'text-base'
+          )}
+          onClick={(e) => {
+            e.stopPropagation()
+            onEdit(process)
+          }}
         >
           {process.name}
         </h3>
         
         {process.owner && (
-          <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+          <div className={cn(
+            'flex items-center gap-1 text-muted-foreground mb-2',
+            viewMode === 'grid' ? 'text-sm' : 'text-xs'
+          )}>
             <User className="h-3 w-3" />
             {process.owner}
+          </div>
+        )}
+        
+        {process.entityName && (
+          <div className={cn(
+            'flex items-center gap-1 text-muted-foreground mb-2',
+            viewMode === 'grid' ? 'text-sm' : 'text-xs'
+          )}>
+            <Factory className="h-3 w-3" />
+            {process.entityName}
+          </div>
+        )}
+
+        {process.dueDate && (
+          <div className={cn(
+            'flex items-center gap-1 mb-2',
+            viewMode === 'grid' ? 'text-sm' : 'text-xs',
+            getDueDateStatus(process.dueDate).color
+          )}>
+            <CalendarDays className="h-3 w-3" />
+            <span>Due: {formatDueDate(process.dueDate)}</span>
+            {getDueDateStatus(process.dueDate).status === 'overdue' && (
+              <Badge variant="destructive" className="ml-1 text-xs px-1 py-0">
+                Overdue
+              </Badge>
+            )}
+            {getDueDateStatus(process.dueDate).status === 'due-today' && (
+              <Badge variant="secondary" className="ml-1 text-xs px-1 py-0 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200">
+                Due Today
+              </Badge>
+            )}
           </div>
         )}
         
@@ -135,14 +204,26 @@ export function ProcessCard({ process, onEdit, onDelete }: ProcessCardProps) {
       </CardHeader>
       
       <CardContent 
-        className="cursor-pointer hover:bg-muted/20 transition-colors"
-        onClick={() => onEdit(process)}
+        className={cn(
+          'cursor-pointer hover:bg-muted/20 transition-colors',
+          viewMode === 'list' && 'flex-1'
+        )}
+        onClick={(e) => {
+          e.stopPropagation()
+          onEdit(process)
+        }}
       >
-        <p className="text-muted-foreground line-clamp-3 leading-relaxed mb-3">
+        <p className={cn(
+          'text-muted-foreground leading-relaxed mb-3',
+          viewMode === 'grid' ? 'line-clamp-3' : 'line-clamp-2'
+        )}>
           {process.description}
         </p>
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className={cn(
+          'flex items-center justify-between text-muted-foreground',
+          viewMode === 'grid' ? 'text-xs' : 'text-xs'
+        )}>
           <div className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
             Modified: {formatDate(process.lastModified)}

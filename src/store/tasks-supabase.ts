@@ -17,7 +17,7 @@ interface TasksState {
   toggleTask: (id: string) => Promise<void>
   setFilter: (filter: FilterType) => void
   setSearch: (search: string) => void
-  reorderTasks: (draggedTaskId: string, afterTaskId: string | null) => Promise<void>
+  reorderTasks: (reorderedTasks: Task[]) => Promise<void>
   clearError: () => void
 }
 
@@ -206,38 +206,34 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
   setSearch: (search) => set({ currentSearch: search }),
 
-  reorderTasks: async (draggedTaskId, afterTaskId) => {
+  reorderTasks: async (reorderedTasks) => {
+    console.log('reorderTasks called with', reorderedTasks.length, 'tasks')
     set({ loading: true, error: null })
     
     try {
-      const state = get()
-      const draggedTask = state.tasks.find(task => task.id === draggedTaskId)
-      if (!draggedTask) return
-
-      const newTasks = state.tasks.filter(task => task.id !== draggedTaskId)
-
-      if (afterTaskId === null) {
-        newTasks.push(draggedTask)
-      } else {
-        const afterIndex = newTasks.findIndex(task => task.id === afterTaskId)
-        newTasks.splice(afterIndex, 0, draggedTask)
-      }
-
       // Update display orders in bulk
-      const updates = newTasks.map((task, index) => ({
+      const updates = reorderedTasks.map((task, index) => ({
         id: task.id,
         display_order: index
       }))
 
-      // Use Supabase batch update
-      const { error } = await supabase.rpc('bulk_update_user_task_order', {
-        updates
-      })
-
-      if (error) throw error
+      // Simple batch update - if RPC doesn't exist, we'll do individual updates
+      try {
+        const { error } = await supabase.rpc('bulk_update_user_task_order', { updates })
+        if (error) throw error
+      } catch (rpcError) {
+        // Fallback to individual updates
+        for (const update of updates) {
+          const { error } = await supabase
+            .from('tasks')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id)
+          if (error) throw error
+        }
+      }
 
       // Update local state
-      const updatedTasks = newTasks.map((task, index) => ({
+      const updatedTasks = reorderedTasks.map((task, index) => ({
         ...task,
         displayOrder: index
       }))

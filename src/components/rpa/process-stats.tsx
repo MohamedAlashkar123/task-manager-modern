@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Settings, PlayCircle, Clock, CheckCircle, PauseCircle } from 'lucide-react'
-import { useRPAProcessesStore } from '@/store/rpa-processes'
+import { useRPAProcessesStore } from '@/store/rpa-processes-supabase'
 
 export function ProcessStats() {
   const { processes } = useRPAProcessesStore()

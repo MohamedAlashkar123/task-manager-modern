@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RPAProcess } from '@/types'
-import { useRPAProcessesStore } from '@/store/rpa-processes'
+import { useRPAProcessesStore } from '@/store/rpa-processes-supabase'
 
 interface ProcessFormDialogProps {
   process?: RPAProcess
@@ -42,13 +42,15 @@ const departments = [
 ]
 
 export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDialogProps) {
-  const { addProcess, updateProcess } = useRPAProcessesStore()
+  const { addProcess, updateProcess, isLoading } = useRPAProcessesStore()
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     status: 'active' as RPAProcess['status'],
     owner: '',
     department: '',
+    entityName: '',
+    dueDate: '',
   })
 
   useEffect(() => {
@@ -59,6 +61,8 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
         status: process.status,
         owner: process.owner || '',
         department: process.department || '',
+        entityName: process.entityName || '',
+        dueDate: process.dueDate || '',
       })
     } else {
       setFormData({
@@ -67,35 +71,46 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
         status: 'active',
         owner: '',
         department: '',
+        entityName: '',
+        dueDate: '',
       })
     }
   }, [process, open])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!formData.name.trim() || !formData.description.trim()) return
     
-    if (process) {
-      updateProcess(process.id, {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        status: formData.status,
-        owner: formData.owner.trim() || null,
-        department: formData.department || null,
-      })
-    } else {
-      addProcess({
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        status: formData.status,
-        owner: formData.owner.trim() || null,
-        department: formData.department || null,
-      })
+    try {
+      if (process) {
+        await updateProcess(process.id, {
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          status: formData.status,
+          owner: formData.owner.trim() || null,
+          department: formData.department || null,
+          entityName: formData.entityName.trim() || null,
+          dueDate: formData.dueDate || null,
+        })
+      } else {
+        await addProcess({
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          status: formData.status,
+          owner: formData.owner.trim() || null,
+          department: formData.department || null,
+          entityName: formData.entityName.trim() || null,
+          dueDate: formData.dueDate || null,
+        })
+      }
+      
+      onOpenChange(false)
+      setFormData({ name: '', description: '', status: 'active', owner: '', department: '', entityName: '', dueDate: '' })
+    } catch (error) {
+      console.error('Failed to save process:', error)
+      // Error handling is managed by the store
     }
-    
-    onOpenChange(false)
-    setFormData({ name: '', description: '', status: 'active', owner: '', department: '' })
   }
 
   return (
@@ -169,22 +184,52 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
             </div>
           </div>
           
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="owner">Owner/Business Unit</Label>
+              <Input
+                id="owner"
+                placeholder="Enter owner or business unit..."
+                value={formData.owner}
+                onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="entityName">Entity Name</Label>
+              <Input
+                id="entityName"
+                placeholder="Enter entity name..."
+                value={formData.entityName}
+                onChange={(e) => setFormData({ ...formData, entityName: e.target.value })}
+              />
+            </div>
+          </div>
+          
           <div className="space-y-2">
-            <Label htmlFor="owner">Owner/Business Unit</Label>
+            <Label htmlFor="dueDate">Due Date</Label>
             <Input
-              id="owner"
-              placeholder="Enter owner or business unit..."
-              value={formData.owner}
-              onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+              id="dueDate"
+              type="date"
+              value={formData.dueDate}
+              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              className="w-full"
             />
           </div>
           
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit">
-              {process ? 'Update Process' : 'Save Process'}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  {process ? 'Updating...' : 'Saving...'}
+                </>
+              ) : (
+                process ? 'Update Process' : 'Save Process'
+              )}
             </Button>
           </div>
         </form>

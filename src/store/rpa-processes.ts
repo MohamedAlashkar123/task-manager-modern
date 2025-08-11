@@ -15,6 +15,7 @@ interface RPAProcessesState {
   setFilter: (filter: RPAFilterType) => void
   setSearch: (search: string) => void
   setViewMode: (mode: ViewMode) => void
+  reorderProcesses: (reorderedProcesses: RPAProcess[]) => void
 }
 
 const getDefaultProcesses = (): RPAProcess[] => [
@@ -25,6 +26,8 @@ const getDefaultProcesses = (): RPAProcess[] => [
     status: 'active',
     owner: 'Finance Team',
     department: 'Finance',
+    entityName: 'Acme Corporation',
+    dueDate: '2024-09-15',
     createdAt: new Date('2024-01-15').toISOString(),
     lastModified: new Date('2024-01-20').toISOString()
   },
@@ -35,6 +38,8 @@ const getDefaultProcesses = (): RPAProcess[] => [
     status: 'in-progress',
     owner: 'HR Department',
     department: 'HR',
+    entityName: 'Global Tech Solutions',
+    dueDate: '2024-08-30',
     createdAt: new Date('2024-02-01').toISOString(),
     lastModified: new Date('2024-02-05').toISOString()
   },
@@ -45,6 +50,8 @@ const getDefaultProcesses = (): RPAProcess[] => [
     status: 'completed',
     owner: 'IT Operations',
     department: 'IT',
+    entityName: 'TechFlow Industries',
+    dueDate: '2024-07-20',
     createdAt: new Date('2023-12-01').toISOString(),
     lastModified: new Date('2024-01-10').toISOString()
   },
@@ -55,8 +62,34 @@ const getDefaultProcesses = (): RPAProcess[] => [
     status: 'on-hold',
     owner: 'Sales Operations',
     department: 'Sales',
+    entityName: 'InnovaCorp Ltd',
+    dueDate: '2024-10-10',
     createdAt: new Date('2024-01-30').toISOString(),
     lastModified: new Date('2024-02-01').toISOString()
+  },
+  {
+    id: 'default-5',
+    name: 'Purchase Order Automation',
+    description: 'Automates purchase order processing from request to approval and vendor notification.',
+    status: 'active',
+    owner: 'Procurement Team',
+    department: 'Procurement',
+    entityName: 'MegaCorp Industries',
+    dueDate: '2024-09-01',
+    createdAt: new Date('2024-02-10').toISOString(),
+    lastModified: new Date('2024-02-12').toISOString()
+  },
+  {
+    id: 'default-6',
+    name: 'Quality Assurance Reporting',
+    description: 'Automated quality assurance reporting system that compiles test results and generates compliance reports.',
+    status: 'in-progress',
+    owner: 'QA Team',
+    department: 'Quality',
+    entityName: 'TechFlow Industries',
+    dueDate: '2024-08-25',
+    createdAt: new Date('2024-02-15').toISOString(),
+    lastModified: new Date('2024-02-18').toISOString()
   }
 ]
 
@@ -99,6 +132,16 @@ export const useRPAProcessesStore = create<RPAProcessesState>()(
       setSearch: (search) => set({ currentSearch: search }),
       
       setViewMode: (mode) => set({ viewMode: mode }),
+      
+      reorderProcesses: (reorderedProcesses) => set(() => {
+        const now = new Date().toISOString()
+        const updatedProcesses = reorderedProcesses.map((process) => ({
+          ...process,
+          lastModified: now
+        }))
+        
+        return { processes: updatedProcesses }
+      }),
     }),
     {
       name: 'rpa-processes-storage',

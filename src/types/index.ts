@@ -26,6 +26,8 @@ export interface RPAProcess {
   status: 'active' | 'in-progress' | 'completed' | 'on-hold'
   owner?: string | null
   department?: string | null
+  entityName?: string | null
+  dueDate?: string | null
   createdAt: string
   lastModified: string
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Edit, Trash2, GripVertical } from 'lucide-react'
+import { Calendar, Edit, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Task } from '@/types'
+import { Task, ViewMode } from '@/types'
 import { useTasksStore } from '@/store/tasks-supabase'
 import { cn } from '@/lib/utils'
 
@@ -26,9 +26,11 @@ interface TaskCardProps {
   task: Task
   onEdit: (task: Task) => void
   onDelete: (taskId: string) => void
+  viewMode?: ViewMode
+  isDragging?: boolean
 }
 
-export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
+export function TaskCard({ task, onEdit, onDelete, viewMode = 'list', isDragging = false }: TaskCardProps) {
   const { toggleTask, updateTask } = useTasksStore()
   
   const isOverdue = () => {
@@ -68,26 +70,129 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
     })
   }
   
+  if (viewMode === 'grid') {
+    return (
+      <Card className={cn(
+        'transition-all duration-200 hover:shadow-md h-full',
+        getStatusColor(),
+        task.completed && 'opacity-75',
+        isDragging && 'opacity-50 transform rotate-2'
+      )}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={task.completed}
+                onCheckedChange={() => toggleTask(task.id)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <Badge variant={getPriorityColor()}>
+                {task.priority}
+              </Badge>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit(task)
+                  }}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(task.id)
+                  }}
+                  className="text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <h3 
+            className={cn(
+              'font-semibold cursor-pointer hover:text-primary transition-colors text-sm',
+              task.completed && 'line-through text-muted-foreground'
+            )}
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(task)
+            }}
+          >
+            {task.title}
+          </h3>
+        </CardHeader>
+        
+        <CardContent className="pt-0">
+          <div className="space-y-3">
+            {task.dueDate && (
+              <div className={cn(
+                'flex items-center gap-1 text-xs',
+                isOverdue() ? 'text-destructive' : isDueToday() ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'
+              )}>
+                <Calendar className="h-3 w-3" />
+                {new Date(task.dueDate).toLocaleDateString()}
+              </div>
+            )}
+            
+            <Select value={task.status} onValueChange={handleStatusChange}>
+              <SelectTrigger 
+                className="w-full h-8 text-xs"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Not Started">Not Started</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className={cn(
-      'transition-all duration-200 hover:shadow-md cursor-grab active:cursor-grabbing',
+      'transition-all duration-200 hover:shadow-md',
       getStatusColor(),
-      task.completed && 'opacity-75'
+      task.completed && 'opacity-75',
+      isDragging && 'opacity-50 shadow-lg'
     )}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 flex-1">
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-3 flex-1">
             <Checkbox
               checked={task.completed}
               onCheckedChange={() => toggleTask(task.id)}
+              onClick={(e) => e.stopPropagation()}
             />
             <h3 
               className={cn(
                 'font-semibold cursor-pointer flex-1 hover:text-primary transition-colors',
                 task.completed && 'line-through text-muted-foreground'
               )}
-              onClick={() => onEdit(task)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit(task)
+              }}
             >
               {task.title}
             </h3>
@@ -99,17 +204,30 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
             </Badge>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Edit className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(task)}>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit(task)
+                  }}
+                >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem 
-                  onClick={() => onDelete(task.id)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(task.id)
+                  }}
                   className="text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -136,7 +254,10 @@ export function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
           </div>
           
           <Select value={task.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger 
+              className="w-32"
+              onClick={(e) => e.stopPropagation()}
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -15,8 +15,10 @@ import { TaskCard } from '@/components/tasks/task-card'
 import { TaskFormDialog } from '@/components/tasks/task-form-dialog'
 import { TaskFilters } from '@/components/tasks/task-filters'
 import { TaskStats } from '@/components/tasks/task-stats'
+import { SortableLayout } from '@/components/layout/SortableLayout'
 import { useTasksStore } from '@/store/tasks-supabase'
 import { useRequireAuth } from '@/contexts/AuthContext'
+import { useLayoutPreferences } from '@/hooks/useLayoutPreferences'
 import { Task } from '@/types'
 
 export default function TasksPage() {
@@ -30,9 +32,11 @@ export default function TasksPage() {
     loading, 
     error, 
     deleteTask, 
+    reorderTasks,
     initializeTasks,
     clearError 
   } = useTasksStore()
+  const { preferences, setViewMode, isLoaded } = useLayoutPreferences('tasks-layout')
   const [selectedTask, setSelectedTask] = useState<Task | undefined>()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null)
@@ -204,16 +208,33 @@ export default function TasksPage() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredAndSortedTasks.map((task) => (
+        <SortableLayout
+          items={filteredAndSortedTasks}
+          onReorder={reorderTasks}
+          viewMode={preferences.viewMode}
+          onViewModeChange={setViewMode}
+          renderItem={(task, isDragging) => (
             <TaskCard
-              key={task.id}
               task={task}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
+              viewMode={preferences.viewMode}
+              isDragging={isDragging}
             />
-          ))}
-        </div>
+          )}
+          renderDragOverlay={(task) => (
+            <TaskCard
+              task={task}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTask}
+              viewMode={preferences.viewMode}
+              isDragging={true}
+            />
+          )}
+          disabled={!isLoaded || loading || currentFilter !== 'all' || !!currentSearch}
+          showHandles={preferences.viewMode === 'list'}
+          aria-label="Tasks list"
+        />
       )}
 
       {/* Floating Add Button */}

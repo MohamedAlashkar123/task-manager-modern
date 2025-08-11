@@ -14,11 +14,14 @@ import { Header } from '@/components/layout/header'
 import { NoteCard } from '@/components/notes/note-card'
 import { NoteFormDialog } from '@/components/notes/note-form-dialog'
 import { NotesSearch } from '@/components/notes/notes-search'
+import { SortableLayout } from '@/components/layout/SortableLayout'
 import { useNotesStore } from '@/store/notes'
+import { useLayoutPreferences } from '@/hooks/useLayoutPreferences'
 import { Note } from '@/types'
 
 export default function NotesPage() {
-  const { notes, currentSearch, deleteNote } = useNotesStore()
+  const { notes, currentSearch, deleteNote, reorderNotes } = useNotesStore()
+  const { preferences, setViewMode, isLoaded } = useLayoutPreferences('notes-layout')
   const [selectedNote, setSelectedNote] = useState<Note | undefined>()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
@@ -80,16 +83,35 @@ export default function NotesPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedNotes.map((note) => (
+        <SortableLayout
+          items={sortedNotes}
+          onReorder={reorderNotes}
+          viewMode={preferences.viewMode}
+          onViewModeChange={setViewMode}
+          renderItem={(note, isDragging) => (
             <NoteCard
-              key={note.id}
               note={note}
               onEdit={handleEditNote}
               onDelete={handleDeleteNote}
+              viewMode={preferences.viewMode}
+              isDragging={isDragging}
             />
-          ))}
-        </div>
+          )}
+          renderDragOverlay={(note) => (
+            <NoteCard
+              note={note}
+              onEdit={handleEditNote}
+              onDelete={handleDeleteNote}
+              viewMode={preferences.viewMode}
+              isDragging={true}
+            />
+          )}
+          disabled={!isLoaded || !!currentSearch}
+          showHandles={preferences.viewMode === 'list'}
+          aria-label="Notes list"
+          gridClassName="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          listClassName="space-y-3"
+        />
       )}
 
       {/* Floating Add Button */}

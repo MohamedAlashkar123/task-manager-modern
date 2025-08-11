@@ -11,7 +11,7 @@ interface NotesState {
   updateNote: (id: string, updates: Partial<Omit<Note, 'id' | 'createdAt'>>) => void
   deleteNote: (id: string) => void
   setSearch: (search: string) => void
-  reorderNotes: (draggedNoteId: string, afterNoteId: string | null) => void
+  reorderNotes: (reorderedNotes: Note[]) => void
 }
 
 export const useNotesStore = create<NotesState>()(
@@ -54,26 +54,12 @@ export const useNotesStore = create<NotesState>()(
       
       setSearch: (search) => set({ currentSearch: search }),
       
-      reorderNotes: (draggedNoteId, afterNoteId) => set((state) => {
-        const draggedNoteIndex = state.notes.findIndex(note => note.id === draggedNoteId)
-        const draggedNote = state.notes[draggedNoteIndex]
-        
-        if (!draggedNote) return state
-        
-        const newNotes = state.notes.filter(note => note.id !== draggedNoteId)
-        
-        if (afterNoteId === null) {
-          newNotes.push(draggedNote)
-        } else {
-          const afterIndex = newNotes.findIndex(note => note.id === afterNoteId)
-          newNotes.splice(afterIndex, 0, draggedNote)
-        }
-        
-        // Update order
-        const updatedNotes = newNotes.map((note, index) => ({
+      reorderNotes: (reorderedNotes) => set(() => {
+        const now = new Date().toISOString()
+        const updatedNotes = reorderedNotes.map((note, index) => ({
           ...note,
           order: index,
-          lastEdited: new Date().toISOString()
+          lastEdited: now
         }))
         
         return { notes: updatedNotes }
