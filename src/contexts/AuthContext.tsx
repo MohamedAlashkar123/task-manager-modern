@@ -3,26 +3,18 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-
-export interface UserProfile {
-  id: string
-  email: string
-  full_name?: string
-  avatar_url?: string
-  created_at: string
-  updated_at: string
-}
+import { UserProfile, AuthError } from '@/types'
 
 interface AuthContextType {
   user: User | null
   profile: UserProfile | null
   session: Session | null
   loading: boolean
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signOut: () => Promise<{ error: any }>
-  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>
-  resetPassword: (email: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: AuthError | null }>
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
+  signOut: () => Promise<{ error: AuthError | null }>
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: AuthError | null }>
+  resetPassword: (email: string) => Promise<{ error: AuthError | null }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -77,7 +69,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Auth state changed:', event, session?.user?.email)
+      }
       
       setSession(session)
       setUser(session?.user ?? null)
@@ -97,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign up new user
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -117,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign in existing user
   const signIn = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })

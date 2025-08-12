@@ -101,11 +101,11 @@ export function usePerformanceTimer(label: string) {
 
 // Decorator for timing functions
 export function timed(label?: string) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value
     const timerLabel = label || `${target.constructor.name}.${propertyKey}`
     
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (...args: unknown[]) {
       const endTiming = perfMonitor.startTiming(timerLabel)
       try {
         const result = originalMethod.apply(this, args)
@@ -167,7 +167,8 @@ export function observeLongTasks() {
         if (entry.entryType === 'longtask') {
           perfMonitor.recordMetric('LongTask', entry.duration)
           
-          if (process.env.NODE_ENV === 'development') {
+          // Only warn for tasks > 100ms to reduce noise
+          if (process.env.NODE_ENV === 'development' && entry.duration > 100) {
             console.warn(`🕒 Long task detected: ${entry.duration.toFixed(2)}ms`)
           }
         }
@@ -175,7 +176,7 @@ export function observeLongTasks() {
     })
     
     observer.observe({ entryTypes: ['longtask'] })
-  } catch (error) {
+  } catch {
     // PerformanceObserver not supported or error, skip
   }
 }

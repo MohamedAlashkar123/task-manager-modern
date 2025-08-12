@@ -22,7 +22,7 @@ interface NoteFormDialogProps {
 }
 
 export function NoteFormDialog({ note, open, onOpenChange }: NoteFormDialogProps) {
-  const { addNote, updateNote } = useNotesStore()
+  const { addNote, updateNote, loading } = useNotesStore()
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -42,26 +42,31 @@ export function NoteFormDialog({ note, open, onOpenChange }: NoteFormDialogProps
     }
   }, [note, open])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!formData.title.trim() || !formData.content.trim()) return
     
-    if (note) {
-      updateNote(note.id, {
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-      })
-    } else {
-      addNote({
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-        order: 0,
-      })
+    try {
+      if (note) {
+        await updateNote(note.id, {
+          title: formData.title.trim(),
+          content: formData.content.trim(),
+        })
+      } else {
+        await addNote({
+          title: formData.title.trim(),
+          content: formData.content.trim(),
+          order: 0,
+        })
+      }
+      
+      onOpenChange(false)
+      setFormData({ title: '', content: '' })
+    } catch (error) {
+      console.error('Failed to save note:', error)
+      // Error handling is managed by the store
     }
-    
-    onOpenChange(false)
-    setFormData({ title: '', content: '' })
   }
 
   return (
@@ -99,11 +104,18 @@ export function NoteFormDialog({ note, open, onOpenChange }: NoteFormDialogProps
           </div>
           
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit">
-              {note ? 'Update Note' : 'Save Note'}
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  {note ? 'Updating...' : 'Saving...'}
+                </>
+              ) : (
+                note ? 'Update Note' : 'Save Note'
+              )}
             </Button>
           </div>
         </form>

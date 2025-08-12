@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
-import { Task, FilterType } from '@/types'
+import { Task, FilterType, SupabaseRow } from '@/types'
 import { cache, cacheKeys } from '@/lib/cache'
 
 interface TasksState {
@@ -45,7 +45,7 @@ const retryOperation = async <T>(
 }
 
 // Convert Supabase row to Task interface  
-const convertSupabaseRowToTask = (row: Record<string, any>): Task => ({
+const convertSupabaseRowToTask = (row: SupabaseRow): Task => ({
   id: row.id,
   title: row.title,
   priority: row.priority,
@@ -59,7 +59,7 @@ const convertSupabaseRowToTask = (row: Record<string, any>): Task => ({
 })
 
 // Convert Task to Supabase insert format
-const convertTaskToSupabaseInsert = (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => ({
+const convertTaskToSupabaseInsert = (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, userId: string) => ({
   title: task.title,
   priority: task.priority,
   completed: task.completed,
@@ -67,12 +67,12 @@ const convertTaskToSupabaseInsert = (task: Omit<Task, 'id' | 'createdAt' | 'upda
   start_date: task.startDate,
   due_date: task.dueDate,
   display_order: task.displayOrder,
-  user_id: null // Will be set by RLS using auth.uid()
+  user_id: userId
 })
 
 // Convert Task updates to Supabase update format
 const convertTaskToSupabaseUpdate = (updates: Partial<Task>) => {
-  const supabaseUpdate: Record<string, any> = {}
+  const supabaseUpdate: Partial<SupabaseRow> = {}
   
   if (updates.title !== undefined) supabaseUpdate.title = updates.title
   if (updates.priority !== undefined) supabaseUpdate.priority = updates.priority
@@ -112,9 +112,19 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
+        .eq('user_id', user.id)
         .order('display_order', { ascending: true })
       
-      if (error) throw error
+      if (error) {
+        console.error('Supabase tasks fetch error:', error)
+        
+        // Check if it's a table doesn't exist error
+        if (error.message?.includes('relation "tasks" does not exist')) {
+          throw new Error('Database table not found. Please run the database setup script.')
+        } else {
+          throw error
+        }
+      }
       
       const tasks = data?.map(convertSupabaseRowToTask) || []
       
@@ -159,13 +169,22 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         const { data, error } = await supabase
           .from('tasks')
           .insert([{
-            ...convertTaskToSupabaseInsert(taskData),
+            ...convertTaskToSupabaseInsert(taskData, user.id),
             display_order: 0
           }])
           .select()
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('Supabase tasks insert error:', error)
+          
+          // Check if it's a table doesn't exist error
+          if (error.message?.includes('relation "tasks" does not exist')) {
+            throw new Error('Database table not found. Please run the database setup script.')
+          } else {
+            throw error
+          }
+        }
 
         const newTask = convertSupabaseRowToTask(data)
         
@@ -208,10 +227,14 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }))
     
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
       const { data, error } = await supabase
         .from('tasks')
         .update(convertTaskToSupabaseUpdate(updates))
         .eq('id', id)
+        .eq('user_id', user.id)
         .select()
         .single()
 
@@ -251,10 +274,14 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }))
     
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
       const { error } = await supabase
         .from('tasks')
         .delete()
         .eq('id', id)
+        .eq('user_id', user.id)
 
       if (error) throw error
 
@@ -298,9 +325,13 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     set({ tasks: updatedTasks, error: null })
     
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
       // Batch update using upsert for better performance
       const updates = reorderedTasks.map((task, index) => ({
         id: task.id,
+        user_id: user.id,
         display_order: index
       }))
 
@@ -309,7 +340,8 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         .from('tasks')
         .upsert(
           updates.map(update => ({ 
-            id: update.id, 
+            id: update.id,
+            user_id: update.user_id,
             display_order: update.display_order 
           })),
           { onConflict: 'id' }
@@ -322,6 +354,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
             .from('tasks')
             .update({ display_order: update.display_order })
             .eq('id', update.id)
+            .eq('user_id', user.id)
         )
         
         const results = await Promise.allSettled(updatePromises)
@@ -355,7 +388,7 @@ supabase
       const store = useTasksStore.getState()
       
       if (payload.eventType === 'INSERT') {
-        const newTask = convertSupabaseRowToTask(payload.new)
+        convertSupabaseRowToTask(payload.new)
         store.initializeTasks() // Refresh to maintain order
       } else if (payload.eventType === 'UPDATE') {
         const updatedTask = convertSupabaseRowToTask(payload.new)

@@ -12,6 +12,7 @@ const cacheKeys = {
 // Database record type (matches Supabase schema)
 interface DatabaseNote {
   id: string
+  user_id: string
   title: string
   content: string
   display_order: number
@@ -30,8 +31,9 @@ const transformDbRecord = (record: DatabaseNote): Note => ({
 })
 
 // Transform app format to database record
-const transformToDbRecord = (note: Partial<Note>): Partial<DatabaseNote> => ({
+const transformToDbRecord = (note: Partial<Note>, userId: string): Partial<DatabaseNote> => ({
   id: note.id,
+  user_id: userId,
   title: note.title,
   content: note.content,
   display_order: note.order,
@@ -81,10 +83,18 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       const { data, error } = await supabase
         .from('notes')
         .select('*')
+        .eq('user_id', user.id)
         .order('display_order', { ascending: true })
 
       if (error) {
-        throw new Error(`Failed to fetch notes: ${error.message}`)
+        console.error('Supabase notes fetch error:', error)
+        
+        // Check if it's a table doesn't exist error
+        if (error.message?.includes('relation "notes" does not exist')) {
+          throw new Error('Database table not found. Please run the database setup script.')
+        } else {
+          throw new Error(`Failed to fetch notes: ${error.message}`)
+        }
       }
 
       const transformedNotes = (data || []).map(transformDbRecord)
@@ -124,15 +134,22 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       // Optimistic update
       set({ notes: [...notes, newNote] })
 
-      const dbRecord = transformToDbRecord(newNote)
+      const dbRecord = transformToDbRecord(newNote, user.id)
       const { error } = await supabase
         .from('notes')
         .insert([dbRecord])
 
       if (error) {
+        console.error('Supabase notes error:', error)
         // Rollback optimistic update
         set({ notes })
-        throw new Error(`Failed to create note: ${error.message}`)
+        
+        // Check if it's a table doesn't exist error
+        if (error.message?.includes('relation "notes" does not exist')) {
+          throw new Error('Database table not found. Please run the database setup script.')
+        } else {
+          throw new Error(`Failed to create note: ${error.message}`)
+        }
       }
 
       // Clear cache to force refresh
@@ -145,6 +162,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to create note',
         loading: false 
       })
+      throw error
     }
   },
 
@@ -171,11 +189,12 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       const updatedNotes = notes.map(n => n.id === id ? updatedNote : n)
       set({ notes: updatedNotes })
 
-      const dbRecord = transformToDbRecord(updatedNote)
+      const dbRecord = transformToDbRecord(updatedNote, user.id)
       const { error } = await supabase
         .from('notes')
         .update(dbRecord)
         .eq('id', id)
+        .eq('user_id', user.id)
 
       if (error) {
         // Rollback optimistic update
@@ -214,6 +233,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
         .from('notes')
         .delete()
         .eq('id', id)
+        .eq('user_id', user.id)
 
       if (error) {
         // Rollback optimistic update
@@ -258,6 +278,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
             .from('notes')
             .update({ display_order: update.display_order })
             .eq('id', update.id)
+            .eq('user_id', user.id)
         }
 
         // Clear cache to ensure consistency

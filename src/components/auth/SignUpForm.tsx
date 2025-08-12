@@ -96,7 +96,7 @@ export function SignUpForm() {
         <div className="text-6xl mb-4">✅</div>
         <h3 className="text-lg font-semibold">Check your email!</h3>
         <p className="text-muted-foreground">
-          We've sent you a confirmation link at{' '}
+          We&apos;ve sent you a confirmation link at{' '}
           <span className="font-medium">{formData.email}</span>
         </p>
         <Button

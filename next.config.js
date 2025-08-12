@@ -18,46 +18,6 @@ const nextConfig = {
     ],
   },
   
-  // Webpack optimizations
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, nextRuntime, webpack }) => {
-    // Optimize bundle splitting
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = {
-        ...config.optimization.splitChunks,
-        cacheGroups: {
-          ...config.optimization.splitChunks.cacheGroups,
-          // Separate vendor chunks for better caching
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-            priority: 10,
-          },
-          // UI components chunk
-          ui: {
-            test: /[\\/]components[\\/]ui[\\/]/,
-            name: 'ui',
-            chunks: 'all',
-            priority: 20,
-          },
-          // Common components chunk
-          common: {
-            test: /[\\/]components[\\/]/,
-            name: 'common',
-            chunks: 'all',
-            minChunks: 2,
-            priority: 15,
-          },
-        },
-      }
-    }
-
-    // Tree shaking improvements
-    config.optimization.usedExports = true
-    config.optimization.sideEffects = false
-
-    return config
-  },
 
   // Compression and optimization
   compress: true,

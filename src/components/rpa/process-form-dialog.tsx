@@ -28,18 +28,6 @@ interface ProcessFormDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-const departments = [
-  'Finance',
-  'HR',
-  'IT', 
-  'Operations',
-  'Marketing',
-  'Sales',
-  'Customer Service',
-  'Procurement',
-  'Legal',
-  'Other'
-]
 
 export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDialogProps) {
   const { addProcess, updateProcess, isLoading } = useRPAProcessesStore()
@@ -173,19 +161,12 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
             
             <div className="space-y-2">
               <Label htmlFor="department">Department</Label>
-              <Select 
-                value={formData.department} 
-                onValueChange={(value) => setFormData({ ...formData, department: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select department..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="department"
+                placeholder="Enter department name..."
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+              />
             </div>
           </div>
           

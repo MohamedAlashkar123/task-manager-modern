@@ -37,3 +37,31 @@ export interface RPAProcess {
 export type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'due-today' | 'high' | 'medium' | 'low'
 export type RPAFilterType = 'all' | 'active' | 'in-progress' | 'completed' | 'on-hold'
 export type ViewMode = 'grid' | 'list'
+
+export interface UserProfile {
+  id: string
+  user_id: string
+  full_name?: string | null
+  avatar_url?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AuthError {
+  message: string
+  status?: number
+}
+
+export interface SupabaseRow {
+  id: string
+  title: string
+  priority: 'high' | 'medium' | 'low'
+  completed: boolean
+  status: 'Not Started' | 'In Progress' | 'Completed'
+  start_date: string | null
+  due_date: string | null
+  display_order: number
+  created_at: string
+  updated_at: string
+  user_id: string
+}
