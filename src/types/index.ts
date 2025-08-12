@@ -4,6 +4,7 @@ export interface Task {
   priority: 'high' | 'medium' | 'low'
   completed: boolean
   status: 'Not Started' | 'In Progress' | 'Completed'
+  startDate: string | null
   dueDate: string | null
   displayOrder: number
   createdAt: string
@@ -27,6 +28,7 @@ export interface RPAProcess {
   owner?: string | null
   department?: string | null
   entityName?: string | null
+  startDate?: string | null
   dueDate?: string | null
   createdAt: string
   lastModified: string

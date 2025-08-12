@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthenticatedLayout } from "@/components/layout/AuthenticatedLayout";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { PerformanceProvider } from "@/components/providers/PerformanceProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,18 +32,22 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <AuthenticatedLayout>
-              {children}
-            </AuthenticatedLayout>
-          </AuthProvider>
-        </ThemeProvider>
+        <ErrorBoundary>
+          <PerformanceProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <AuthProvider>
+                <AuthenticatedLayout>
+                  {children}
+                </AuthenticatedLayout>
+              </AuthProvider>
+            </ThemeProvider>
+          </PerformanceProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

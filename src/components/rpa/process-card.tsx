@@ -5,6 +5,7 @@ import { Calendar, Edit, Trash2, User, Building, PlayCircle, PauseCircle, CheckC
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import { RPAProcess, ViewMode } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -88,6 +89,21 @@ export function ProcessCard({ process, onEdit, onDelete, viewMode = 'grid', isDr
     return { status: 'normal', color: 'text-muted-foreground', bgColor: '' }
   }
 
+  const calculateProgress = () => {
+    if (process.status === 'completed') return 100
+    if (!process.startDate || !process.dueDate) return 0
+    
+    const start = new Date(process.startDate).getTime()
+    const end = new Date(process.dueDate).getTime()
+    const now = new Date().getTime()
+    
+    if (now < start) return 0
+    if (now > end) return 100
+    
+    const progress = ((now - start) / (end - start)) * 100
+    return Math.max(0, Math.min(100, Math.round(progress)))
+  }
+
   return (
     <Card 
       className={cn(
@@ -164,6 +180,16 @@ export function ProcessCard({ process, onEdit, onDelete, viewMode = 'grid', isDr
           </div>
         )}
 
+        {process.startDate && (
+          <div className={cn(
+            'flex items-center gap-1 text-muted-foreground mb-2',
+            viewMode === 'grid' ? 'text-sm' : 'text-xs'
+          )}>
+            <PlayCircle className="h-3 w-3" />
+            <span>Started: {formatDueDate(process.startDate)}</span>
+          </div>
+        )}
+
         {process.dueDate && (
           <div className={cn(
             'flex items-center gap-1 mb-2',
@@ -185,7 +211,7 @@ export function ProcessCard({ process, onEdit, onDelete, viewMode = 'grid', isDr
           </div>
         )}
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-3">
           <Badge 
             variant={getStatusColor(process.status)}
             className={cn('flex items-center gap-1', getStatusStyle(process.status))}
@@ -201,6 +227,22 @@ export function ProcessCard({ process, onEdit, onDelete, viewMode = 'grid', isDr
             </Badge>
           )}
         </div>
+
+        {(process.startDate && process.dueDate) && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Progress</span>
+              <span>{calculateProgress()}%</span>
+            </div>
+            <Progress 
+              value={calculateProgress()} 
+              className={cn(
+                "h-2",
+                process.status === 'completed' && "bg-green-100 dark:bg-green-900"
+              )}
+            />
+          </div>
+        )}
       </CardHeader>
       
       <CardContent 

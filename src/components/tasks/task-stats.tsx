@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle, Clock, AlertTriangle, ListTodo } from 'lucide-react'
-import { useTasksStore } from '@/store/tasks'
+import { useTasksStore } from '@/store/tasks-supabase'
 
 export function TaskStats() {
   const { tasks } = useTasksStore()

@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Note } from '@/types'
-import { useNotesStore } from '@/store/notes'
+import { useNotesStore } from '@/store/notes-supabase'
 
 interface NoteFormDialogProps {
   note?: Note

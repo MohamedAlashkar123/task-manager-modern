@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import { Task, FilterType } from '@/types'
+import { cache, cacheKeys } from '@/lib/cache'
 
 interface TasksState {
   tasks: Task[]
@@ -21,13 +22,36 @@ interface TasksState {
   clearError: () => void
 }
 
-// Convert Supabase row to Task interface
-const convertSupabaseRowToTask = (row: any): Task => ({
+// Retry utility for failed operations
+const retryOperation = async <T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 2,
+  delay: number = 1000
+): Promise<T> => {
+  let lastError: Error
+  
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await operation()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error')
+      if (i < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)))
+      }
+    }
+  }
+  
+  throw lastError!
+}
+
+// Convert Supabase row to Task interface  
+const convertSupabaseRowToTask = (row: Record<string, any>): Task => ({
   id: row.id,
   title: row.title,
   priority: row.priority,
   completed: row.completed,
   status: row.status,
+  startDate: row.start_date,
   dueDate: row.due_date,
   displayOrder: row.display_order,
   createdAt: row.created_at,
@@ -40,6 +64,7 @@ const convertTaskToSupabaseInsert = (task: Omit<Task, 'id' | 'createdAt' | 'upda
   priority: task.priority,
   completed: task.completed,
   status: task.status,
+  start_date: task.startDate,
   due_date: task.dueDate,
   display_order: task.displayOrder,
   user_id: null // Will be set by RLS using auth.uid()
@@ -47,12 +72,13 @@ const convertTaskToSupabaseInsert = (task: Omit<Task, 'id' | 'createdAt' | 'upda
 
 // Convert Task updates to Supabase update format
 const convertTaskToSupabaseUpdate = (updates: Partial<Task>) => {
-  const supabaseUpdate: any = {}
+  const supabaseUpdate: Record<string, any> = {}
   
   if (updates.title !== undefined) supabaseUpdate.title = updates.title
   if (updates.priority !== undefined) supabaseUpdate.priority = updates.priority
   if (updates.completed !== undefined) supabaseUpdate.completed = updates.completed
   if (updates.status !== undefined) supabaseUpdate.status = updates.status
+  if (updates.startDate !== undefined) supabaseUpdate.start_date = updates.startDate
   if (updates.dueDate !== undefined) supabaseUpdate.due_date = updates.dueDate
   if (updates.displayOrder !== undefined) supabaseUpdate.display_order = updates.displayOrder
   
@@ -67,9 +93,22 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   error: null,
 
   initializeTasks: async () => {
-    set({ loading: true, error: null })
-    
     try {
+      // Get current user first
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not authenticated')
+
+      const cacheKey = cacheKeys.tasks(user.id)
+      
+      // Check cache first
+      const cachedTasks = cache.get<Task[]>(cacheKey)
+      if (cachedTasks) {
+        set({ tasks: cachedTasks, loading: false, error: null })
+        return
+      }
+
+      set({ loading: true, error: null })
+      
       const { data, error } = await supabase
         .from('tasks')
         .select('*')
@@ -78,6 +117,10 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       if (error) throw error
       
       const tasks = data?.map(convertSupabaseRowToTask) || []
+      
+      // Cache the results
+      cache.set(cacheKey, tasks, 5 * 60 * 1000) // 5 minutes
+      
       set({ tasks, loading: false })
       
     } catch (error) {
@@ -90,52 +133,79 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   },
 
   addTask: async (taskData) => {
-    set({ loading: true, error: null })
+    // Optimistic update - immediately add to local state
+    const optimisticTask: Task = {
+      ...taskData,
+      id: `temp-${Date.now()}`, // Temporary ID
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    set((state) => ({
+      tasks: [optimisticTask, ...state.tasks.map(task => ({
+        ...task,
+        displayOrder: task.displayOrder + 1
+      }))],
+      error: null
+    }))
     
     try {
-      // Get the current user
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('User not authenticated')
+      await retryOperation(async () => {
+        // Get the current user
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('User not authenticated')
 
-      // First, increment display_order of all existing tasks for this user
-      const { error: updateError } = await supabase.rpc('increment_user_task_display_order')
-      if (updateError) throw updateError
+        // Insert the new task with display_order = 0 (single operation)
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert([{
+            ...convertTaskToSupabaseInsert(taskData),
+            display_order: 0
+          }])
+          .select()
+          .single()
 
-      // Insert the new task with display_order = 0
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert([{
-          ...convertTaskToSupabaseInsert(taskData),
-          display_order: 0,
-          user_id: user.id
-        }])
-        .select()
-        .single()
+        if (error) throw error
 
-      if (error) throw error
-
-      const newTask = convertSupabaseRowToTask(data)
-      
-      // Update local state
-      set((state) => ({
-        tasks: [newTask, ...state.tasks.map(task => ({
-          ...task,
-          displayOrder: task.displayOrder + 1
-        }))],
-        loading: false
-      }))
+        const newTask = convertSupabaseRowToTask(data)
+        
+        // Invalidate cache
+        cache.delete(cacheKeys.tasks(user.id))
+        
+        // Replace optimistic task with real task
+        set((state) => ({
+          tasks: state.tasks.map(task => 
+            task.id === optimisticTask.id ? newTask : task
+          )
+        }))
+      })
 
     } catch (error) {
       console.error('Error adding task:', error)
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to add task',
-        loading: false 
-      })
+      
+      // Revert optimistic update on error
+      set((state) => ({
+        tasks: state.tasks.filter(task => task.id !== optimisticTask.id).map(task => ({
+          ...task,
+          displayOrder: task.displayOrder - 1
+        })),
+        error: error instanceof Error ? error.message : 'Failed to add task'
+      }))
     }
   },
 
   updateTask: async (id, updates) => {
-    set({ loading: true, error: null })
+    // Store original task for rollback
+    const originalTask = get().tasks.find(t => t.id === id)
+    if (!originalTask) return
+
+    // Optimistic update - immediately update local state
+    set((state) => ({
+      tasks: state.tasks.map(task =>
+        task.id === id ? { ...task, ...updates, updatedAt: new Date().toISOString() } : task
+      ),
+      error: null
+    }))
     
     try {
       const { data, error } = await supabase
@@ -149,25 +219,36 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
       const updatedTask = convertSupabaseRowToTask(data)
       
-      // Update local state
+      // Sync with server response
       set((state) => ({
         tasks: state.tasks.map(task =>
           task.id === id ? updatedTask : task
-        ),
-        loading: false
+        )
       }))
 
     } catch (error) {
       console.error('Error updating task:', error)
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to update task',
-        loading: false 
-      })
+      
+      // Revert optimistic update on error
+      set((state) => ({
+        tasks: state.tasks.map(task =>
+          task.id === id ? originalTask : task
+        ),
+        error: error instanceof Error ? error.message : 'Failed to update task'
+      }))
     }
   },
 
   deleteTask: async (id) => {
-    set({ loading: true, error: null })
+    // Store original task for rollback
+    const originalTask = get().tasks.find(t => t.id === id)
+    if (!originalTask) return
+
+    // Optimistic update - immediately remove from local state
+    set((state) => ({
+      tasks: state.tasks.filter(task => task.id !== id),
+      error: null
+    }))
     
     try {
       const { error } = await supabase
@@ -176,19 +257,15 @@ export const useTasksStore = create<TasksState>((set, get) => ({
         .eq('id', id)
 
       if (error) throw error
-      
-      // Update local state
-      set((state) => ({
-        tasks: state.tasks.filter(task => task.id !== id),
-        loading: false
-      }))
 
     } catch (error) {
       console.error('Error deleting task:', error)
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to delete task',
-        loading: false 
-      })
+      
+      // Revert optimistic update on error
+      set((state) => ({
+        tasks: [...state.tasks, originalTask].sort((a, b) => a.displayOrder - b.displayOrder),
+        error: error instanceof Error ? error.message : 'Failed to delete task'
+      }))
     }
   },
 
@@ -199,6 +276,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     const completed = !task.completed
     const status = completed ? 'Completed' : 'Not Started'
 
+    // Use optimized updateTask which already handles optimistic updates
     await get().updateTask(id, { completed, status })
   },
 
@@ -207,44 +285,60 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   setSearch: (search) => set({ currentSearch: search }),
 
   reorderTasks: async (reorderedTasks) => {
-    console.log('reorderTasks called with', reorderedTasks.length, 'tasks')
-    set({ loading: true, error: null })
+    // Store original order for rollback
+    const originalTasks = [...get().tasks]
+    
+    // Optimistic update - immediately update local state
+    const updatedTasks = reorderedTasks.map((task, index) => ({
+      ...task,
+      displayOrder: index,
+      updatedAt: new Date().toISOString()
+    }))
+
+    set({ tasks: updatedTasks, error: null })
     
     try {
-      // Update display orders in bulk
+      // Batch update using upsert for better performance
       const updates = reorderedTasks.map((task, index) => ({
         id: task.id,
         display_order: index
       }))
 
-      // Simple batch update - if RPC doesn't exist, we'll do individual updates
-      try {
-        const { error } = await supabase.rpc('bulk_update_user_task_order', { updates })
-        if (error) throw error
-      } catch (rpcError) {
-        // Fallback to individual updates
-        for (const update of updates) {
-          const { error } = await supabase
+      // Try to use batch update - more efficient than individual updates
+      const { error } = await supabase
+        .from('tasks')
+        .upsert(
+          updates.map(update => ({ 
+            id: update.id, 
+            display_order: update.display_order 
+          })),
+          { onConflict: 'id' }
+        )
+
+      if (error) {
+        // Fallback to individual updates if batch fails
+        const updatePromises = updates.map(update => 
+          supabase
             .from('tasks')
             .update({ display_order: update.display_order })
             .eq('id', update.id)
-          if (error) throw error
+        )
+        
+        const results = await Promise.allSettled(updatePromises)
+        const failures = results.filter(result => result.status === 'rejected')
+        
+        if (failures.length > 0) {
+          throw new Error(`Failed to update ${failures.length} tasks`)
         }
       }
 
-      // Update local state
-      const updatedTasks = reorderedTasks.map((task, index) => ({
-        ...task,
-        displayOrder: index
-      }))
-
-      set({ tasks: updatedTasks, loading: false })
-
     } catch (error) {
       console.error('Error reordering tasks:', error)
+      
+      // Revert optimistic update on error
       set({ 
-        error: error instanceof Error ? error.message : 'Failed to reorder tasks',
-        loading: false 
+        tasks: originalTasks,
+        error: error instanceof Error ? error.message : 'Failed to reorder tasks'
       })
     }
   },

@@ -2,7 +2,7 @@
 
 import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { useNotesStore } from '@/store/notes'
+import { useNotesStore } from '@/store/notes-supabase'
 
 export function NotesSearch() {
   const { currentSearch, setSearch } = useNotesStore()

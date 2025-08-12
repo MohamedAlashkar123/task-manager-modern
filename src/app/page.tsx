@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Loader2 } from 'lucide-react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -12,13 +12,15 @@ import {
 } from '@/components/ui/dialog'
 import { Header } from '@/components/layout/header'
 import { TaskCard } from '@/components/tasks/task-card'
-import { TaskFormDialog } from '@/components/tasks/task-form-dialog'
 import { TaskFilters } from '@/components/tasks/task-filters'
 import { TaskStats } from '@/components/tasks/task-stats'
-import { SortableLayout } from '@/components/layout/SortableLayout'
 import { useTasksStore } from '@/store/tasks-supabase'
 import { useRequireAuth } from '@/contexts/AuthContext'
 import { useLayoutPreferences } from '@/hooks/useLayoutPreferences'
+import { useDebounce } from '@/hooks/useDebounce'
+import { TaskSkeleton } from '@/components/ui/skeleton'
+import { PageLoadingSpinner } from '@/components/layout/LoadingSpinner'
+import { LazyTaskFormDialog, LazySortableLayout } from '@/components/pages/LazyPages'
 import { Task } from '@/types'
 
 export default function TasksPage() {
@@ -48,72 +50,65 @@ export default function TasksPage() {
     }
   }, [user, authLoading, initializeTasks])
 
-  // Show loading if auth is still loading
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-          <span>Loading your tasks...</span>
-        </div>
-      </div>
-    )
-  }
+  // Debounce search to avoid excessive filtering
+  const debouncedSearch = useDebounce(currentSearch, 300)
 
-  // This will redirect to login if not authenticated
-  if (!user) {
-    return null
-  }
-
-  const filterTasks = (tasks: Task[]): Task[] => {
-    let filtered = [...tasks]
+  // Move filter and sort functions - must be before any conditional returns
+  const filterTasks = useCallback((tasks: Task[], filter: typeof currentFilter, search: string): Task[] => {
+    if (tasks.length === 0) return tasks
+    
+    let filtered = tasks
 
     // Apply status filter
-    switch (currentFilter) {
-      case 'completed':
-        filtered = filtered.filter(task => task.completed)
-        break
-      case 'pending':
-        filtered = filtered.filter(task => !task.completed)
-        break
-      case 'overdue':
-        filtered = filtered.filter(task => {
-          if (!task.dueDate || task.completed) return false
-          return new Date(task.dueDate) < new Date()
-        })
-        break
-      case 'due-today':
-        filtered = filtered.filter(task => {
-          if (!task.dueDate || task.completed) return false
+    if (filter !== 'all') {
+      switch (filter) {
+        case 'completed':
+          filtered = filtered.filter(task => task.completed)
+          break
+        case 'pending':
+          filtered = filtered.filter(task => !task.completed)
+          break
+        case 'overdue':
+          filtered = filtered.filter(task => {
+            if (!task.dueDate || task.completed) return false
+            return new Date(task.dueDate) < new Date()
+          })
+          break
+        case 'due-today':
           const today = new Date()
-          const dueDate = new Date(task.dueDate)
           today.setHours(0, 0, 0, 0)
-          dueDate.setHours(0, 0, 0, 0)
-          return dueDate.getTime() === today.getTime()
-        })
-        break
-      case 'high':
-      case 'medium':
-      case 'low':
-        filtered = filtered.filter(task => task.priority === currentFilter)
-        break
+          filtered = filtered.filter(task => {
+            if (!task.dueDate || task.completed) return false
+            const dueDate = new Date(task.dueDate)
+            dueDate.setHours(0, 0, 0, 0)
+            return dueDate.getTime() === today.getTime()
+          })
+          break
+        case 'high':
+        case 'medium':
+        case 'low':
+          filtered = filtered.filter(task => task.priority === filter)
+          break
+      }
     }
 
     // Apply search filter
-    if (currentSearch) {
-      const searchTerm = currentSearch.toLowerCase()
+    if (search.trim()) {
+      const searchTerm = search.toLowerCase().trim()
       filtered = filtered.filter(task =>
         task.title.toLowerCase().includes(searchTerm)
       )
     }
 
     return filtered
-  }
+  }, [])
 
-  const sortTasks = (tasks: Task[]): Task[] => {
-    return tasks.sort((a, b) => {
+  const sortTasks = useCallback((tasks: Task[]): Task[] => {
+    if (tasks.length === 0) return tasks
+    
+    return [...tasks].sort((a, b) => {
       // If no filters and no search, use manual order
-      if (currentFilter === 'all' && !currentSearch) {
+      if (currentFilter === 'all' && !debouncedSearch.trim()) {
         if (a.completed !== b.completed) {
           return a.completed ? 1 : -1
         }
@@ -141,25 +136,40 @@ export default function TasksPage() {
 
       return 0
     })
-  }
+  }, [currentFilter, debouncedSearch])
 
-  const filteredAndSortedTasks = sortTasks(filterTasks(tasks))
+  // Memoize expensive filtering and sorting operations
+  const filteredAndSortedTasks = useMemo(() => {
+    return sortTasks(filterTasks(tasks, currentFilter, debouncedSearch))
+  }, [tasks, currentFilter, debouncedSearch, filterTasks, sortTasks])
 
-  const handleEditTask = (task: Task) => {
+  // Optimized callbacks to prevent unnecessary re-renders
+  const handleEditTask = useCallback((task: Task) => {
     setSelectedTask(task)
     setIsFormOpen(true)
-  }
+  }, [])
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = useCallback((taskId: string) => {
     setTaskToDelete(taskId)
-  }
+  }, [])
 
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(() => {
     if (taskToDelete) {
       deleteTask(taskToDelete)
       setTaskToDelete(null)
     }
+  }, [taskToDelete, deleteTask])
+
+  // Show loading if auth is still loading
+  if (authLoading) {
+    return <PageLoadingSpinner text="Loading your tasks..." />
   }
+
+  // This will redirect to login if not authenticated
+  if (!user) {
+    return null
+  }
+
 
   return (
     <div className="space-y-6">
@@ -184,11 +194,12 @@ export default function TasksPage() {
       
       <TaskFilters />
 
-      {/* Loading State */}
+      {/* Loading State with Skeleton */}
       {loading && tasks.length === 0 && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin mr-2" />
-          <span>Loading your tasks...</span>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <TaskSkeleton key={i} />
+          ))}
         </div>
       )}
       
@@ -208,7 +219,7 @@ export default function TasksPage() {
           </Button>
         </div>
       ) : (
-        <SortableLayout
+        <LazySortableLayout
           items={filteredAndSortedTasks}
           onReorder={reorderTasks}
           viewMode={preferences.viewMode}
@@ -231,7 +242,7 @@ export default function TasksPage() {
               isDragging={true}
             />
           )}
-          disabled={!isLoaded || loading || currentFilter !== 'all' || !!currentSearch}
+          disabled={!isLoaded || loading || currentFilter !== 'all' || !!debouncedSearch.trim()}
           showHandles={preferences.viewMode === 'list'}
           aria-label="Tasks list"
         />
@@ -248,7 +259,7 @@ export default function TasksPage() {
         <Plus className="h-6 w-6" />
       </Button>
 
-      <TaskFormDialog
+      <LazyTaskFormDialog
         task={selectedTask}
         open={isFormOpen}
         onOpenChange={(open) => {

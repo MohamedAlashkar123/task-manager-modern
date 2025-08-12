@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Edit, Trash2 } from 'lucide-react'
+import { Calendar, Edit, Trash2, PlayCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Task, ViewMode } from '@/types'
 import { useTasksStore } from '@/store/tasks-supabase'
+import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
 interface TaskCardProps {
@@ -45,6 +46,21 @@ export function TaskCard({ task, onEdit, onDelete, viewMode = 'list', isDragging
     today.setHours(0, 0, 0, 0)
     dueDate.setHours(0, 0, 0, 0)
     return dueDate.getTime() === today.getTime()
+  }
+  
+  const calculateProgress = () => {
+    if (task.completed) return 100
+    if (!task.startDate || !task.dueDate) return 0
+    
+    const start = new Date(task.startDate).getTime()
+    const end = new Date(task.dueDate).getTime()
+    const now = new Date().getTime()
+    
+    if (now < start) return 0
+    if (now > end) return 100
+    
+    const progress = ((now - start) / (end - start)) * 100
+    return Math.max(0, Math.min(100, Math.round(progress)))
   }
   
   const getPriorityColor = () => {
@@ -140,13 +156,37 @@ export function TaskCard({ task, onEdit, onDelete, viewMode = 'list', isDragging
         
         <CardContent className="pt-0">
           <div className="space-y-3">
-            {task.dueDate && (
-              <div className={cn(
-                'flex items-center gap-1 text-xs',
-                isOverdue() ? 'text-destructive' : isDueToday() ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'
-              )}>
-                <Calendar className="h-3 w-3" />
-                {new Date(task.dueDate).toLocaleDateString()}
+            <div className="flex flex-col gap-2">
+              {task.startDate && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <PlayCircle className="h-3 w-3" />
+                  Started: {new Date(task.startDate).toLocaleDateString()}
+                </div>
+              )}
+              {task.dueDate && (
+                <div className={cn(
+                  'flex items-center gap-1 text-xs',
+                  isOverdue() ? 'text-destructive' : isDueToday() ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'
+                )}>
+                  <Calendar className="h-3 w-3" />
+                  Due: {new Date(task.dueDate).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+            
+            {(task.startDate && task.dueDate) && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Progress</span>
+                  <span>{calculateProgress()}%</span>
+                </div>
+                <Progress 
+                  value={calculateProgress()} 
+                  className={cn(
+                    "h-1.5",
+                    task.completed && "bg-green-100 dark:bg-green-900"
+                  )}
+                />
               </div>
             )}
             
@@ -240,32 +280,56 @@ export function TaskCard({ task, onEdit, onDelete, viewMode = 'list', isDragging
       </CardHeader>
       
       <CardContent className="pt-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {task.dueDate && (
-              <div className={cn(
-                'flex items-center gap-1 text-sm',
-                isOverdue() ? 'text-destructive' : isDueToday() ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'
-              )}>
-                <Calendar className="h-4 w-4" />
-                {new Date(task.dueDate).toLocaleDateString()}
-              </div>
-            )}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {task.startDate && (
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <PlayCircle className="h-4 w-4" />
+                  Started: {new Date(task.startDate).toLocaleDateString()}
+                </div>
+              )}
+              {task.dueDate && (
+                <div className={cn(
+                  'flex items-center gap-1 text-sm',
+                  isOverdue() ? 'text-destructive' : isDueToday() ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'
+                )}>
+                  <Calendar className="h-4 w-4" />
+                  Due: {new Date(task.dueDate).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+            
+            <Select value={task.status} onValueChange={handleStatusChange}>
+              <SelectTrigger 
+                className="w-32"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Not Started">Not Started</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
-          <Select value={task.status} onValueChange={handleStatusChange}>
-            <SelectTrigger 
-              className="w-32"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Not Started">Not Started</SelectItem>
-              <SelectItem value="In Progress">In Progress</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
+          {(task.startDate && task.dueDate) && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Progress:</span>
+                <span className="font-medium">{calculateProgress()}%</span>
+              </div>
+              <Progress 
+                value={calculateProgress()} 
+                className={cn(
+                  "flex-1 h-2",
+                  task.completed && "bg-green-100 dark:bg-green-900"
+                )}
+              />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

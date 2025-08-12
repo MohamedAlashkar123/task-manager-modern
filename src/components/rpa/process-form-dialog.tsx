@@ -50,6 +50,7 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
     owner: '',
     department: '',
     entityName: '',
+    startDate: '',
     dueDate: '',
   })
 
@@ -62,6 +63,7 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
         owner: process.owner || '',
         department: process.department || '',
         entityName: process.entityName || '',
+        startDate: process.startDate || '',
         dueDate: process.dueDate || '',
       })
     } else {
@@ -72,6 +74,7 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
         owner: '',
         department: '',
         entityName: '',
+        startDate: '',
         dueDate: '',
       })
     }
@@ -91,6 +94,7 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
           owner: formData.owner.trim() || null,
           department: formData.department || null,
           entityName: formData.entityName.trim() || null,
+          startDate: formData.startDate || null,
           dueDate: formData.dueDate || null,
         })
       } else {
@@ -101,12 +105,13 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
           owner: formData.owner.trim() || null,
           department: formData.department || null,
           entityName: formData.entityName.trim() || null,
+          startDate: formData.startDate || null,
           dueDate: formData.dueDate || null,
         })
       }
       
       onOpenChange(false)
-      setFormData({ name: '', description: '', status: 'active', owner: '', department: '', entityName: '', dueDate: '' })
+      setFormData({ name: '', description: '', status: 'active', owner: '', department: '', entityName: '', startDate: '', dueDate: '' })
     } catch (error) {
       console.error('Failed to save process:', error)
       // Error handling is managed by the store
@@ -206,15 +211,28 @@ export function ProcessFormDialog({ process, open, onOpenChange }: ProcessFormDi
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="dueDate">Due Date</Label>
-            <Input
-              id="dueDate"
-              type="date"
-              value={formData.dueDate}
-              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-              className="w-full"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                className="w-full"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={formData.dueDate}
+                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                className="w-full"
+              />
+            </div>
           </div>
           
           <div className="flex justify-end gap-2">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,16 +15,35 @@ import { NoteCard } from '@/components/notes/note-card'
 import { NoteFormDialog } from '@/components/notes/note-form-dialog'
 import { NotesSearch } from '@/components/notes/notes-search'
 import { SortableLayout } from '@/components/layout/SortableLayout'
-import { useNotesStore } from '@/store/notes'
+import { useNotesStore } from '@/store/notes-supabase'
+import { useRequireAuth } from '@/contexts/AuthContext'
 import { useLayoutPreferences } from '@/hooks/useLayoutPreferences'
 import { Note } from '@/types'
 
 export default function NotesPage() {
-  const { notes, currentSearch, deleteNote, reorderNotes } = useNotesStore()
+  // Require authentication for this page
+  const { user, loading: authLoading } = useRequireAuth()
+  
+  const { 
+    notes, 
+    currentSearch, 
+    error,
+    deleteNote, 
+    reorderNotes,
+    initializeNotes,
+    clearError
+  } = useNotesStore()
   const { preferences, setViewMode, isLoaded } = useLayoutPreferences('notes-layout')
   const [selectedNote, setSelectedNote] = useState<Note | undefined>()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
+
+  // Initialize notes from Supabase when user is authenticated
+  useEffect(() => {
+    if (user && !authLoading) {
+      initializeNotes()
+    }
+  }, [user, authLoading, initializeNotes])
 
   const filteredNotes = notes.filter(note => {
     if (!currentSearch) return true
@@ -58,12 +77,34 @@ export default function NotesPage() {
     }
   }
 
+  // Show loading if auth is still loading
+  if (authLoading) {
+    return <div className="flex justify-center items-center min-h-[200px]">Loading your notes...</div>
+  }
+
+  // This will redirect to login if not authenticated
+  if (!user) {
+    return null
+  }
+
   return (
     <div className="space-y-6">
       <Header 
         title="Notes" 
         subtitle="Organize your thoughts and ideas" 
       />
+      
+      {/* Error Display */}
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
+          <div className="flex items-center justify-between">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={clearError}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
       
       <NotesSearch />
       

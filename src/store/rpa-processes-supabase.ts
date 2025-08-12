@@ -10,6 +10,7 @@ interface DatabaseRPAProcess {
   owner: string | null
   department: string | null
   entity_name: string | null
+  start_date: string | null
   due_date: string | null
   created_at: string
   last_modified: string
@@ -43,6 +44,7 @@ const transformDbRecord = (record: DatabaseRPAProcess): RPAProcess => ({
   owner: record.owner,
   department: record.department,
   entityName: record.entity_name,
+  startDate: record.start_date,
   dueDate: record.due_date,
   createdAt: record.created_at,
   lastModified: record.last_modified,
@@ -56,6 +58,7 @@ const transformToDbRecord = (process: Partial<RPAProcess>) => ({
   owner: process.owner,
   department: process.department,
   entity_name: process.entityName,
+  start_date: process.startDate,
   due_date: process.dueDate,
 })
 

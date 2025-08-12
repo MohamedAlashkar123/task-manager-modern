@@ -4,7 +4,7 @@ import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { FilterType } from '@/types'
-import { useTasksStore } from '@/store/tasks'
+import { useTasksStore } from '@/store/tasks-supabase'
 import { cn } from '@/lib/utils'
 
 const filterOptions: { key: FilterType; label: string }[] = [

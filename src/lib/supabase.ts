@@ -31,6 +31,7 @@ export type Database = {
           priority: 'low' | 'medium' | 'high'
           completed: boolean
           status: 'Not Started' | 'In Progress' | 'Completed' | 'On Hold'
+          start_date: string | null
           due_date: string | null
           display_order: number
           created_at: string
@@ -42,6 +43,7 @@ export type Database = {
           priority: 'low' | 'medium' | 'high'
           completed?: boolean
           status: 'Not Started' | 'In Progress' | 'Completed' | 'On Hold'
+          start_date?: string | null
           due_date?: string | null
           display_order?: number
           created_at?: string
@@ -53,6 +55,7 @@ export type Database = {
           priority?: 'low' | 'medium' | 'high'
           completed?: boolean
           status?: 'Not Started' | 'In Progress' | 'Completed' | 'On Hold'
+          start_date?: string | null
           due_date?: string | null
           display_order?: number
           created_at?: string
@@ -93,6 +96,9 @@ export type Database = {
           status: 'active' | 'inactive' | 'draft' | 'error'
           owner: string
           department: string
+          entity_name: string | null
+          start_date: string | null
+          due_date: string | null
           created_at: string
           last_modified: string
         }
@@ -103,6 +109,9 @@ export type Database = {
           status: 'active' | 'inactive' | 'draft' | 'error'
           owner?: string
           department?: string
+          entity_name?: string | null
+          start_date?: string | null
+          due_date?: string | null
           created_at?: string
           last_modified?: string
         }
@@ -113,6 +122,9 @@ export type Database = {
           status?: 'active' | 'inactive' | 'draft' | 'error'
           owner?: string
           department?: string
+          entity_name?: string | null
+          start_date?: string | null
+          due_date?: string | null
           created_at?: string
           last_modified?: string
         }

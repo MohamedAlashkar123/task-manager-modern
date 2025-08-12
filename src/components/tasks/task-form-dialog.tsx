@@ -29,10 +29,11 @@ interface TaskFormDialogProps {
 }
 
 export function TaskFormDialog({ task, open, onOpenChange }: TaskFormDialogProps) {
-  const { addTask, updateTask, loading } = useTasksStore()
+  const { addTask, updateTask } = useTasksStore()
   const [formData, setFormData] = useState({
     title: '',
     priority: 'medium' as Task['priority'],
+    startDate: '',
     dueDate: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -42,12 +43,14 @@ export function TaskFormDialog({ task, open, onOpenChange }: TaskFormDialogProps
       setFormData({
         title: task.title,
         priority: task.priority,
+        startDate: task.startDate || '',
         dueDate: task.dueDate || '',
       })
     } else {
       setFormData({
         title: '',
         priority: 'medium' as Task['priority'],
+        startDate: '',
         dueDate: '',
       })
     }
@@ -65,12 +68,14 @@ export function TaskFormDialog({ task, open, onOpenChange }: TaskFormDialogProps
         await updateTask(task.id, {
           title: formData.title.trim(),
           priority: formData.priority,
+          startDate: formData.startDate || null,
           dueDate: formData.dueDate || null,
         })
       } else {
         await addTask({
           title: formData.title.trim(),
           priority: formData.priority,
+          startDate: formData.startDate || null,
           dueDate: formData.dueDate || null,
           completed: false,
           status: 'Not Started',
@@ -79,7 +84,7 @@ export function TaskFormDialog({ task, open, onOpenChange }: TaskFormDialogProps
       }
       
       onOpenChange(false)
-      setFormData({ title: '', priority: 'medium', dueDate: '' })
+      setFormData({ title: '', priority: 'medium', startDate: '', dueDate: '' })
     } catch (error) {
       console.error('Error submitting form:', error)
       // Error will be handled by the store and displayed in the UI
@@ -125,6 +130,16 @@ export function TaskFormDialog({ task, open, onOpenChange }: TaskFormDialogProps
                 <SelectItem value="low">Low Priority</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="startDate">Start Date (optional)</Label>
+            <Input
+              id="startDate"
+              type="date"
+              value={formData.startDate}
+              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+            />
           </div>
           
           <div className="space-y-2">
