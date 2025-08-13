@@ -18,6 +18,14 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 1,
+    },
+    // Disable heartbeat to prevent WebSocket connections
+    heartbeatIntervalMs: 0,
+    reconnectAfterMs: () => null,
+  },
   global: {
     headers: {
       'x-client-info': 'task-manager@1.0.0',
@@ -25,9 +33,23 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 })
 
-// Disable realtime channels for security
+// Completely disable realtime for security
 if (typeof window !== 'undefined') {
-  supabase.removeAllChannels()
+  // Override the realtime client to prevent any connections
+  Object.defineProperty(supabase, 'realtime', {
+    value: {
+      isConnected: () => false,
+      channel: () => ({
+        on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
+        subscribe: () => ({ unsubscribe: () => {} }),
+        unsubscribe: () => {},
+      }),
+      removeAllChannels: () => {},
+      disconnect: () => {},
+    },
+    writable: false,
+    configurable: false,
+  })
 }
 
 // Database type definitions for TypeScript

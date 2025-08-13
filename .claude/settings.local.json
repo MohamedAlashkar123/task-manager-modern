@@ -38,7 +38,10 @@
       "Bash(source ~/.bashrc)",
       "Bash(sudo mv:*)",
       "Bash(export PATH=\"$HOME/node-v20/bin:$PATH\")",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(git push:*)",
+      "Bash(gh auth:*)",
+      "Bash(git config:*)"
     ],
     "deny": []
   }
