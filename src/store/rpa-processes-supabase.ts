@@ -41,7 +41,7 @@ const transformDbRecord = (record: DatabaseRPAProcess): RPAProcess => ({
   id: record.id,
   name: record.name,
   description: record.description,
-  status: record.status,
+  status: record.status as 'active' | 'in-progress' | 'completed' | 'on-hold',
   owner: record.owner,
   department: record.department,
   entityName: record.entity_name,
@@ -82,7 +82,7 @@ export const useRPAProcessesStore = create<RPAProcessesState>((set) => ({
       }
 
       // First, try to query with user_id filter
-      let query = supabase
+      const query = supabase
         .from('rpa_processes')
         .select('*')
         .order('created_at', { ascending: false })
@@ -131,12 +131,12 @@ export const useRPAProcessesStore = create<RPAProcessesState>((set) => ({
       console.error('Error fetching RPA processes:', error)
       
       // Check if it's a table doesn't exist error
-      if (error?.message?.includes('relation "rpa_processes" does not exist')) {
+      if ((error as { message?: string })?.message?.includes('relation "rpa_processes" does not exist')) {
         set({ 
           error: 'Database table not found. Please run the database setup script.',
           isLoading: false 
         })
-      } else if (error?.message?.includes('column "user_id" does not exist')) {
+      } else if ((error as { message?: string })?.message?.includes('column "user_id" does not exist')) {
         set({ 
           error: 'Database migration required. Please run the migration script to add user isolation.',
           isLoading: false 
@@ -180,7 +180,7 @@ export const useRPAProcessesStore = create<RPAProcessesState>((set) => ({
             console.warn('Missing database columns detected, using fallback insert. Please run the database migration script.')
             
             // Fallback: insert without user_id and optional columns
-            const fallbackRecord: any = {
+            const fallbackRecord: Record<string, unknown> = {
               name: processData.name,
               description: processData.description,
               status: processData.status,
@@ -241,12 +241,12 @@ export const useRPAProcessesStore = create<RPAProcessesState>((set) => ({
       console.error('Error adding RPA process:', error)
       
       // Check if it's a table doesn't exist error
-      if (error?.message?.includes('relation "rpa_processes" does not exist')) {
+      if ((error as { message?: string })?.message?.includes('relation "rpa_processes" does not exist')) {
         set({ 
           error: 'Database table not found. Please run the database setup script.',
           isLoading: false 
         })
-      } else if (error?.message?.includes('column "user_id" does not exist')) {
+      } else if ((error as { message?: string })?.message?.includes('column "user_id" does not exist')) {
         set({ 
           error: 'Database migration required. Please run the migration script to add user isolation.',
           isLoading: false 

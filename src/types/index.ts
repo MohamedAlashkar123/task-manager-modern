@@ -9,6 +9,7 @@ export interface Task {
   displayOrder: number
   createdAt: string
   updatedAt: string
+  [key: string]: unknown
 }
 
 export interface Note {
@@ -18,6 +19,7 @@ export interface Note {
   createdAt: string
   lastEdited: string
   order: number
+  [key: string]: unknown
 }
 
 export interface RPAProcess {
@@ -32,6 +34,7 @@ export interface RPAProcess {
   dueDate?: string | null
   createdAt: string
   lastModified: string
+  [key: string]: unknown
 }
 
 export type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'due-today' | 'high' | 'medium' | 'low'

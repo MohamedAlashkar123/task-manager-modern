@@ -102,9 +102,9 @@ export function Navigation() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="relative h-10 w-10 rounded-full p-0">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
+                <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || undefined} />
                 <AvatarFallback className="text-sm">
-                  {getInitials(profile?.full_name || profile?.email || user?.email || 'U')}
+                  {getInitials(profile?.full_name || user?.email || 'U')}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -116,7 +116,7 @@ export function Navigation() {
                   <p className="font-medium">{profile.full_name}</p>
                 )}
                 <p className="w-[200px] truncate text-sm text-muted-foreground">
-                  {profile?.email || user?.email}
+                  {user?.email}
                 </p>
               </div>
             </div>

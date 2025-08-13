@@ -103,6 +103,10 @@ export default function TasksPage() {
     return filtered
   }, [])
 
+  const handleReorderTasks = useCallback((items: unknown[]) => {
+    reorderTasks(items as Task[])
+  }, [reorderTasks])
+
   const sortTasks = useCallback((tasks: Task[]): Task[] => {
     if (tasks.length === 0) return tasks
     
@@ -221,12 +225,12 @@ export default function TasksPage() {
       ) : (
         <LazySortableLayout
           items={filteredAndSortedTasks}
-          onReorder={reorderTasks}
+          onReorder={handleReorderTasks}
           viewMode={preferences.viewMode}
           onViewModeChange={setViewMode}
           renderItem={(task, isDragging) => (
             <TaskCard
-              task={task}
+              task={task as Task}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
               viewMode={preferences.viewMode}
@@ -235,7 +239,7 @@ export default function TasksPage() {
           )}
           renderDragOverlay={(task) => (
             <TaskCard
-              task={task}
+              task={task as Task}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
               viewMode={preferences.viewMode}

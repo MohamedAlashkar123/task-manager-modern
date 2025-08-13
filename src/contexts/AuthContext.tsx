@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error }
     } catch (error) {
       console.error('Sign up error:', error)
-      return { error }
+      return { error: error as AuthError }
     }
   }
 
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error }
     } catch (error) {
       console.error('Sign in error:', error)
-      return { error }
+      return { error: error as AuthError }
     }
   }
 
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error }
     } catch (error) {
       console.error('Sign out error:', error)
-      return { error }
+      return { error: error as AuthError }
     }
   }
 
@@ -155,7 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: null }
     } catch (error) {
       console.error('Update profile error:', error)
-      return { error }
+      return { error: error as AuthError }
     }
   }
 
@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error }
     } catch (error) {
       console.error('Reset password error:', error)
-      return { error }
+      return { error: error as AuthError }
     }
   }
 

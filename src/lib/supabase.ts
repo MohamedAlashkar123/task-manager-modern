@@ -11,14 +11,24 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
-// Create and export Supabase client
+// Create and export Supabase client (client-side only)
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: {
+    headers: {
+      'x-client-info': 'task-manager@1.0.0',
+    },
+  },
 })
+
+// Disable realtime channels for security
+if (typeof window !== 'undefined') {
+  supabase.removeAllChannels()
+}
 
 // Database type definitions for TypeScript
 export type Database = {

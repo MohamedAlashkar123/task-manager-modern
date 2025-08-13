@@ -18,7 +18,7 @@ export function UserProfile() {
   const [success, setSuccess] = useState(false)
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || '',
-    email: profile?.email || user?.email || '',
+    email: user?.email || '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,7 +53,7 @@ export function UserProfile() {
   const handleCancel = () => {
     setFormData({
       full_name: profile?.full_name || '',
-      email: profile?.email || user?.email || '',
+      email: user?.email || '',
     })
     setIsEditing(false)
     setError(null)
@@ -91,16 +91,16 @@ export function UserProfile() {
         <CardHeader className="pb-4">
           <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={profile.avatar_url} alt={profile.full_name} />
+              <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name || undefined} />
               <AvatarFallback className="text-lg font-semibold">
-                {getInitials(profile.full_name || profile.email)}
+                {getInitials(profile.full_name || user?.email || 'User')}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
               <CardTitle className="text-xl">
                 {profile.full_name || 'User'}
               </CardTitle>
-              <p className="text-muted-foreground">{profile.email}</p>
+              <p className="text-muted-foreground">{user?.email}</p>
             </div>
             {!isEditing && (
               <Button
@@ -207,7 +207,7 @@ export function UserProfile() {
 
               <div>
                 <Label className="text-sm font-medium">Email</Label>
-                <p className="mt-1 text-sm">{profile.email}</p>
+                <p className="mt-1 text-sm">{user?.email}</p>
               </div>
 
               <div>

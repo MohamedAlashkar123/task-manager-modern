@@ -31,13 +31,13 @@ export interface SortableItemData {
   [key: string]: unknown
 }
 
-interface SortableLayoutProps<T extends SortableItemData> {
-  items: T[]
-  onReorder: (items: T[]) => void
+interface SortableLayoutProps {
+  items: SortableItemData[]
+  onReorder: (items: SortableItemData[]) => void
   viewMode: ViewMode
   onViewModeChange: (mode: ViewMode) => void
-  renderItem: (item: T, isDragging?: boolean) => ReactNode
-  renderDragOverlay?: (item: T) => ReactNode
+  renderItem: (item: SortableItemData, isDragging?: boolean) => ReactNode
+  renderDragOverlay?: (item: SortableItemData) => ReactNode
   className?: string
   gridClassName?: string
   listClassName?: string
@@ -47,7 +47,7 @@ interface SortableLayoutProps<T extends SortableItemData> {
   'aria-label'?: string
 }
 
-export function SortableLayout<T extends SortableItemData>({
+export function SortableLayout({
   items,
   onReorder,
   viewMode,
@@ -61,7 +61,7 @@ export function SortableLayout<T extends SortableItemData>({
   disabled = false,
   showHandles = true,
   'aria-label': ariaLabel = 'Sortable items'
-}: SortableLayoutProps<T>) {
+}: SortableLayoutProps) {
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
   
   const sensors = useSensors(

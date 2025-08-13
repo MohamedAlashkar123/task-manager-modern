@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import { Task, FilterType, SupabaseRow } from '@/types'
 import { cache, cacheKeys } from '@/lib/cache'
+import { secureConsole } from '@/lib/secure-logging'
 
 interface TasksState {
   tasks: Task[]
@@ -109,32 +110,28 @@ export const useTasksStore = create<TasksState>((set, get) => ({
 
       set({ loading: true, error: null })
       
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('display_order', { ascending: true })
-      
-      if (error) {
-        console.error('Supabase tasks fetch error:', error)
+      const response = await fetch('/api/tasks')
+      const result = await response.json()
+
+      if (!response.ok) {
+        secureConsole.error('API tasks fetch error:', result.error)
         
-        // Check if it's a table doesn't exist error
-        if (error.message?.includes('relation "tasks" does not exist')) {
+        if (result.error?.includes('relation "tasks" does not exist')) {
           throw new Error('Database table not found. Please run the database setup script.')
         } else {
-          throw error
+          throw new Error(result.error || 'Failed to load tasks')
         }
       }
       
-      const tasks = data?.map(convertSupabaseRowToTask) || []
+      const tasks = result.tasks?.map(convertSupabaseRowToTask) || []
       
       // Cache the results
       cache.set(cacheKey, tasks, 5 * 60 * 1000) // 5 minutes
       
-      set({ tasks, loading: false })
+      set({ tasks, loading: false, error: null })
       
     } catch (error) {
-      console.error('Error loading tasks:', error)
+      secureConsole.error('Error loading tasks:', error)
       set({ 
         error: error instanceof Error ? error.message : 'Failed to load tasks',
         loading: false 
@@ -142,11 +139,17 @@ export const useTasksStore = create<TasksState>((set, get) => ({
     }
   },
 
-  addTask: async (taskData) => {
+  addTask: async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
     // Optimistic update - immediately add to local state
     const optimisticTask: Task = {
-      ...taskData,
       id: `temp-${Date.now()}`, // Temporary ID
+      title: taskData.title as string,
+      priority: taskData.priority as 'high' | 'medium' | 'low',
+      completed: taskData.completed as boolean,
+      status: taskData.status as 'Not Started' | 'In Progress' | 'Completed',
+      startDate: taskData.startDate as string | null,
+      dueDate: taskData.dueDate as string | null,
+      displayOrder: taskData.displayOrder as number,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -176,7 +179,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
           .single()
 
         if (error) {
-          console.error('Supabase tasks insert error:', error)
+          secureConsole.error('Supabase tasks insert error:', error)
           
           // Check if it's a table doesn't exist error
           if (error.message?.includes('relation "tasks" does not exist')) {
@@ -200,7 +203,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       })
 
     } catch (error) {
-      console.error('Error adding task:', error)
+      secureConsole.error('Error adding task:', error)
       
       // Revert optimistic update on error
       set((state) => ({
@@ -250,7 +253,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       }))
 
     } catch (error) {
-      console.error('Error updating task:', error)
+      secureConsole.error('Error updating task:', error)
       
       // Revert optimistic update on error
       set((state) => ({
@@ -286,7 +289,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       if (error) throw error
 
     } catch (error) {
-      console.error('Error deleting task:', error)
+      secureConsole.error('Error deleting task:', error)
       
       // Revert optimistic update on error
       set((state) => ({
@@ -366,7 +369,7 @@ export const useTasksStore = create<TasksState>((set, get) => ({
       }
 
     } catch (error) {
-      console.error('Error reordering tasks:', error)
+      secureConsole.error('Error reordering tasks:', error)
       
       // Revert optimistic update on error
       set({ 
@@ -379,29 +382,5 @@ export const useTasksStore = create<TasksState>((set, get) => ({
   clearError: () => set({ error: null })
 }))
 
-// Subscribe to real-time changes
-supabase
-  .channel('tasks_channel')
-  .on('postgres_changes', 
-    { event: '*', schema: 'public', table: 'tasks' },
-    (payload) => {
-      const store = useTasksStore.getState()
-      
-      if (payload.eventType === 'INSERT') {
-        convertSupabaseRowToTask(payload.new)
-        store.initializeTasks() // Refresh to maintain order
-      } else if (payload.eventType === 'UPDATE') {
-        const updatedTask = convertSupabaseRowToTask(payload.new)
-        useTasksStore.setState((state) => ({
-          tasks: state.tasks.map(task =>
-            task.id === updatedTask.id ? updatedTask : task
-          )
-        }))
-      } else if (payload.eventType === 'DELETE') {
-        useTasksStore.setState((state) => ({
-          tasks: state.tasks.filter(task => task.id !== payload.old.id)
-        }))
-      }
-    }
-  )
-  .subscribe()
+// Real-time subscriptions removed for security
+// Data will be refreshed through secure API calls and periodic polling

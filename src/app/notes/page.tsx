@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,6 +35,10 @@ export default function NotesPage() {
   } = useNotesStore()
   const { preferences, setViewMode, isLoaded } = useLayoutPreferences('notes-layout')
   const [selectedNote, setSelectedNote] = useState<Note | undefined>()
+  
+  const handleReorderNotes = useCallback((items: unknown[]) => {
+    reorderNotes(items as Note[])
+  }, [reorderNotes])
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [noteToDelete, setNoteToDelete] = useState<string | null>(null)
 
@@ -126,12 +130,12 @@ export default function NotesPage() {
       ) : (
         <SortableLayout
           items={sortedNotes}
-          onReorder={reorderNotes}
+          onReorder={handleReorderNotes}
           viewMode={preferences.viewMode}
           onViewModeChange={setViewMode}
           renderItem={(note, isDragging) => (
             <NoteCard
-              note={note}
+              note={note as Note}
               onEdit={handleEditNote}
               onDelete={handleDeleteNote}
               viewMode={preferences.viewMode}
@@ -140,7 +144,7 @@ export default function NotesPage() {
           )}
           renderDragOverlay={(note) => (
             <NoteCard
-              note={note}
+              note={note as Note}
               onEdit={handleEditNote}
               onDelete={handleDeleteNote}
               viewMode={preferences.viewMode}

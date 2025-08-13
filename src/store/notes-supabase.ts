@@ -73,8 +73,8 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       // Check cache first
       const cacheKey = cacheKeys.notes(user.id)
       const cached = cache.get(cacheKey)
-      if (cached) {
-        set({ notes: cached, loading: false })
+      if (cached && Array.isArray(cached)) {
+        set({ notes: cached as Note[], loading: false })
         return
       }
 
@@ -112,7 +112,7 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
     }
   },
 
-  addNote: async (noteData) => {
+  addNote: async (noteData: Omit<Note, 'id' | 'createdAt' | 'lastEdited'>) => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('User not authenticated')
@@ -124,8 +124,9 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
       
       const now = new Date().toISOString()
       const newNote: Note = {
-        ...noteData,
         id: crypto.randomUUID(),
+        title: noteData.title as string,
+        content: noteData.content as string,
         order: maxOrder + 1,
         createdAt: now,
         lastEdited: now,

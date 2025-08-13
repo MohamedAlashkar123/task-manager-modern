@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,6 +36,10 @@ export default function RPAProcessesPage() {
   const [selectedProcess, setSelectedProcess] = useState<RPAProcess | undefined>()
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [processToDelete, setProcessToDelete] = useState<string | null>(null)
+  
+  const handleReorderProcesses = useCallback((items: unknown[]) => {
+    reorderProcesses(items as RPAProcess[])
+  }, [reorderProcesses])
 
   // Fetch processes on component mount
   useEffect(() => {
@@ -103,12 +107,12 @@ export default function RPAProcessesPage() {
     return (
       <SortableLayout
         items={processes}
-        onReorder={reorderProcesses}
+        onReorder={handleReorderProcesses}
         viewMode={preferences.viewMode}
         onViewModeChange={setViewMode}
         renderItem={(process, isDragging) => (
           <ProcessCard
-            process={process}
+            process={process as RPAProcess}
             onEdit={handleEditProcess}
             onDelete={handleDeleteProcess}
             viewMode={preferences.viewMode}
@@ -117,7 +121,7 @@ export default function RPAProcessesPage() {
         )}
         renderDragOverlay={(process) => (
           <ProcessCard
-            process={process}
+            process={process as RPAProcess}
             onEdit={handleEditProcess}
             onDelete={handleDeleteProcess}
             viewMode={preferences.viewMode}

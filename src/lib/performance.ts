@@ -103,7 +103,7 @@ export function usePerformanceTimer(label: string) {
 export function timed(label?: string) {
   return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value
-    const timerLabel = label || `${target.constructor.name}.${propertyKey}`
+    const timerLabel = label || `${(target as { constructor: { name: string } }).constructor.name}.${propertyKey}`
     
     descriptor.value = function (...args: unknown[]) {
       const endTiming = perfMonitor.startTiming(timerLabel)
@@ -132,13 +132,13 @@ export function initWebVitals() {
   if (typeof window === 'undefined') return
 
   // Monitor Core Web Vitals
-  import('web-vitals').then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
+  import('web-vitals').then(({ onCLS, onINP, onFCP, onLCP, onTTFB }) => {
     onCLS((metric) => {
       perfMonitor.recordMetric('CLS', metric.value)
     })
     
-    onFID((metric) => {
-      perfMonitor.recordMetric('FID', metric.value)
+    onINP((metric) => {
+      perfMonitor.recordMetric('INP', metric.value)
     })
     
     onFCP((metric) => {
