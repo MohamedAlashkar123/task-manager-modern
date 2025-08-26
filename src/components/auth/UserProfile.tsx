@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { User, Mail, Calendar, Edit2, Check, X, Loader2 } from 'lucide-react'
+import { User, Mail, Calendar, Edit2, Check, X, Loader2, Shield } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -232,6 +233,16 @@ export function UserProfile() {
           <CardTitle>Account Actions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Link href="/profile/mfa">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+            >
+              <Shield className="mr-2 h-4 w-4" />
+              Multi-Factor Authentication
+            </Button>
+          </Link>
+          
           <Button
             variant="outline"
             onClick={handleSignOut}

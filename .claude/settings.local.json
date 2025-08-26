@@ -41,7 +41,8 @@
       "Bash(cd:*)",
       "Bash(git push:*)",
       "Bash(gh auth:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }
